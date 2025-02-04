@@ -1,1 +1,5 @@
+<<<<<<< HEAD
 this is fun 
+=======
+Hello to everyone
+>>>>>>> 7c420c683b25624e590cc672895f0a959e0d537c
