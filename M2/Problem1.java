@@ -11,8 +11,11 @@ public class Problem1 extends BaseClass {
 
         // Challenge: Print odd values only in a single line separated by commas
         // Step 1: sketch out plan using comments (include ucid and date)
-        // Plan is to go throuh every array index and divid that by to figure out if theres a one its an odd if not its an even  aac97 and 2/19/2025
+       
+        // Plan is to go throuh every array index and divid that by to figure out if theres a one its an odd if not its an even  aac97 and 2/19/2025 
+        
         // Step 2: Add/commit your outline of comments (required for full credit)
+        
         
         // Step 3: Add code to solve the problem (add/commit as needed)
         System.out.print("Output Array: ");
@@ -21,7 +24,7 @@ public class Problem1 extends BaseClass {
             {
                 if (num % 2 != 0) // Check if the number is odd
                 { 
-                    System.out.println(num + ",");    
+                    System.out.print(num + ",");    //This prints out the odds numbers in the array 
                 }
             }
             

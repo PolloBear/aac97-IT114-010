@@ -19,19 +19,22 @@ public class Problem2 extends BaseClass {
         // Example: 0.1 would be shown as 0.10, 1 would be shown as 1.00, etc
 
         // Step 1: sketch out plan using comments (include ucid and date)
-        
+        //Challange 1:Plan is to get every single index in the array and at it to a total and print it out 
+        //Challange 2:Find something online to format it to only to index 
+        //aac97 2/19/2025
         // Step 2: Add/commit your outline of comments (required for full credit)
         
         // Step 3: Add code to solve the problem (add/commit as needed)
-        double total = 0;
         // Start Solution Edits
         // Solve Challenge 1 here
-        for(double num : arr){
-            total += num;
+        double total = 0; // This is so we can add the array to this total 
+        for(double num : arr)// Get every index in the arrray 
+        { 
+            total += num; // Sums up the total 
         }
       
         // Solve Challenge 2 here
-        Object modifiedTotal =  String.format("%.2f", total);
+        String modifiedTotal =  String.format("%.2f", total);// This changes it to the 2 decimal places 
         
         // End Solution Edits
         System.out.println("Total Raw Value: " +total);
@@ -41,7 +44,7 @@ public class Problem2 extends BaseClass {
     }
 
     public static void main(String[] args) {
-        final String ucid = "mt85"; // <-- change to your UCID
+        final String ucid = "aac97"; // <-- change to your UCID
         // no edits below this line
         printHeader(ucid, 2);
         sumValues(array1, 1);
