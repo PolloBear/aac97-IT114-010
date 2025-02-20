@@ -1,5 +1,7 @@
 package M2;
 
+import java.text.DecimalFormat;
+
 public class Problem2 extends BaseClass {
     private static double[] array1 = { 0.1, 0.2, 0.3, 0.4, 0.5, 0.6 };
     private static double[] array2 = { 1.0000001, 1.0000002, 1.0000003, 1.0000004, 1.0000005 }; 
@@ -15,17 +17,22 @@ public class Problem2 extends BaseClass {
         // Challenge 1: Sum all the values of the passed in array and assign to `total`
         // Challenge 2: Have the sum be represented as a number with exactly 2 decimal places, assign to `modifiedTotal`
         // Example: 0.1 would be shown as 0.10, 1 would be shown as 1.00, etc
+
         // Step 1: sketch out plan using comments (include ucid and date)
+        
         // Step 2: Add/commit your outline of comments (required for full credit)
+        
         // Step 3: Add code to solve the problem (add/commit as needed)
         double total = 0;
         // Start Solution Edits
         // Solve Challenge 1 here
-        
+        for(double num : arr){
+            total += num;
+        }
       
         // Solve Challenge 2 here
-        Object modifiedTotal = "?";
-
+        Object modifiedTotal =  String.format("%.2f", total);
+        
         // End Solution Edits
         System.out.println("Total Raw Value: " +total);
         System.out.println("Total Modified Value: " + modifiedTotal);

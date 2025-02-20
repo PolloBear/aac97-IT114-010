@@ -11,11 +11,20 @@ public class Problem1 extends BaseClass {
 
         // Challenge: Print odd values only in a single line separated by commas
         // Step 1: sketch out plan using comments (include ucid and date)
+        //
         // Step 2: Add/commit your outline of comments (required for full credit)
+        
         // Step 3: Add code to solve the problem (add/commit as needed)
         System.out.print("Output Array: ");
         // Start Solution Edits
-        
+        boolean isFirst = true;
+        for (int num : arr){
+            if (!isFirst){
+                System.out.print(",");
+            }
+            System.out.print(num);
+            isFirst = false;
+        }
 
         // End Solution Edits
         System.out.println("");

@@ -17,7 +17,34 @@ public class Problem3 extends BaseClass {
         // Step 3: Add code to solve the problem (add/commit as needed)
         Object[] output = new Object[arr.length];
         // Start Solution Edits
-        
+        for (int i = 0; i < arr.length; i++) {
+            Object value = arr[i];
+
+            // Handle numbers (Integer, Double, Float)
+            if (value instanceof Number) {
+                double num = ((Number) value).doubleValue(); // Convert to double
+                output[i] = Math.abs(num); // Make positive
+                // Convert back to original type
+                if (value instanceof Integer) {
+                    output[i] = ((Double) output[i]).intValue();
+                } else if (value instanceof Float) {
+                    output[i] = ((Double) output[i]).floatValue();
+                }
+            }
+            // Handle Strings
+            else if (value instanceof String) {
+                try {
+                    double num = Double.parseDouble((String) value); // Parse as double
+                    output[i] = String.valueOf(Math.abs(num)); // Make positive and convert back to String
+                } catch (NumberFormatException e) {
+                    output[i] = value; // If not a number, keep original value
+                }
+            }
+            // Handle other types (keep as is)
+            else {
+                output[i] = value;
+            }
+        }
 
         // End Solution Edits
         System.out.println("Output: ");

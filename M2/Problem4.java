@@ -30,7 +30,37 @@ public class Problem4 extends BaseClass {
         
         for(int i = 0; i <arr.length; i++){
             // Start Solution Edits
+            String placeholderForModifiedPhrase = "";
+            String placeholderForMiddleCharacters = "";
             
+            // Challenge 1: Remove non-alphanumeric characters except spaces
+             String cleanedPhrase = arr[i].replaceAll("[^a-zA-Z0-9\\s]", "");
+
+             // Challenge 2: Convert text to Title Case
+             String[] words = cleanedPhrase.split(" ");
+             StringBuilder titleCasePhrase = new StringBuilder();
+             for (String word : words) {
+                 if (word.length() > 0) {
+                     titleCasePhrase.append(Character.toUpperCase(word.charAt(0)))
+                                    .append(word.substring(1).toLowerCase())
+                                    .append(" ");
+                 }
+             }
+             String titleCasePhrase = titleCasePhrase.toString().trim();
+ 
+             // Challenge 3: Trim leading/trailing spaces and remove duplicate spaces
+             String finalPhrase = titleCasePhrase.replaceAll("\\s+", " ").trim();
+ 
+             placeholderForModifiedPhrase = finalPhrase;
+ 
+             // Challenge 4: Extract middle 3 characters
+             int length = finalPhrase.length();
+             if (length >= 3) {
+                 int middle = length / 2;
+                 placeholderForMiddleCharacters = finalPhrase.substring(middle - 1, middle + 2);
+             } else {
+                 placeholderForMiddleCharacters = "Not enough characters";
+             }
              // End Solution Edits
             System.out.println(String.format("Index[%d] \"%s\" | Middle: \"%s\"",i, placeholderForModifiedPhrase, placeholderForMiddleCharacters));
         }
