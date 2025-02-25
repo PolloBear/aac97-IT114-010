@@ -36,7 +36,8 @@ public class MadLibsGenerator extends BaseClass {
         }
         List<String> lines = new ArrayList<>();
         // Start edits
-        
+        // load a random story file
+
         File[] files = folder.listFiles();
         Random random = new Random();
         File chosenFile = files[random.nextInt(files.length)];
@@ -51,6 +52,7 @@ public class MadLibsGenerator extends BaseClass {
             scanner.close();
             return;
         }
+        // parse the story lines
 
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i);
@@ -64,39 +66,32 @@ public class MadLibsGenerator extends BaseClass {
                     break;
                 }
 
+        // prompt the user for each placeholder (note: there may be more than one
+        // placeholder in a line)
+        // apply the update to the same collection slot
 
-                String placeholder = line.substring(startIndex + 1, endIndex); // e.g., "adjective" or "my_sillyword"
+                String placeholder = line.substring(startIndex + 1, endIndex); 
 
-                // Convert underscores to spaces for the prompt
                 String promptPlaceholder = placeholder.replace("_", " ");
 
-                // Prompt user
                 System.out.print("Enter a " + promptPlaceholder + ": ");
                 String userInput = scanner.nextLine();
 
-                // Rebuild the line with the user's input replacing the placeholder
-                // Everything before < + user input + everything after >
                 line = line.substring(0, startIndex) + userInput + line.substring(endIndex + 1);
 
-                // Look for the next '<' in the updated line
+                
                 startIndex = line.indexOf('<');
             }
 
-            // Update the collection with the modified line
             lines.set(i, line);
         }
 
         
-        // load a random story file
 
-        // parse the story lines
 
-        // iterate through the lines
 
-        // prompt the user for each placeholder (note: there may be more than one
-        // placeholder in a line)
+  
 
-        // apply the update to the same collection slot
 
         // End edits
         System.out.println("\nYour Completed Mad Libs Story:\n");
