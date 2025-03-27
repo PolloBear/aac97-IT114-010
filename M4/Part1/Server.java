@@ -30,7 +30,7 @@ public class Server {
                     break;
                 }
                 else if ("/flip".equalsIgnoreCase(fromClient)) {
-                    // ucid: Aac97 
+                    // ucid: Aac97 3/26/2025
                     // added coin flip logic
                     String result = Math.random() < 0.5 ? "heads" : "tails";
                     String message = "Server: You flipped a coin and got " + result;
