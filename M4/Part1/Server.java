@@ -28,7 +28,16 @@ public class Server {
                     // sake
                     System.out.println("Client killed server");
                     break;
-                } else {
+                }
+                else if ("/flip".equalsIgnoreCase(fromClient)) {
+                    // ucid: jic 
+                    // added coin flip logic
+                    String result = Math.random() < 0.5 ? "heads" : "tails";
+                    String message = "Server: You flipped a coin and got " + result;
+                    System.out.println(message);
+                }
+                
+                else {
                     System.out.println("From client: " + fromClient);
                 }
             }
