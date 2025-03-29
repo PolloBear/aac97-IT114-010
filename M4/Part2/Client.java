@@ -102,8 +102,12 @@ public class Client {
             String[] parts = text.trim().replaceAll(" +", " ").split(" ")[1].split(":");
             connect(parts[0].trim(), Integer.parseInt(parts[1].trim()));
             return true;
-        } else if ("/quit".equalsIgnoreCase(text)) {
-            isRunning = false;
+        } // ucid:aac97
+          // Handle /pm command
+        else if (text.startsWith("/pm ")) {
+            if (isConnected()) {
+                out.println(text);
+            }
             return true;
         }
         return false;

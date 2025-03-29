@@ -1,56 +1,46 @@
 package M4.Part2;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.List;
+import java.util.ArrayList;
 
 public class Server {
     private int port = 3000;
+    private List<ServerThread> clients = new ArrayList<>();
+
+    public synchronized void registerClient(ServerThread client) {
+        clients.add(client);
+    }
+
+    public synchronized void sendPM(int targetId, String message, ServerThread sender) {
+        String fullMessage = "PM from " + sender.getDisplayName() + ": " + message;
+        sender.send(fullMessage); // also send to the sender
+
+        for (ServerThread client : clients) {
+            if (client.getId() == targetId) {
+                client.send(fullMessage);
+                return;
+            }
+        }
+        sender.send("Server: Could not find client with ID " + targetId);
+    }
 
     private void start(int port) {
         this.port = port;
         System.out.println("Listening on port " + this.port);
-        // server listening
-        try (ServerSocket serverSocket = new ServerSocket(port);
-                // client wait
-                Socket client = serverSocket.accept(); // blocking;
-                // send to client
-                PrintWriter out = new PrintWriter(client.getOutputStream(), true);
-                // read from client
-                BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()));) {
 
-            System.out.println("Client connected, waiting for message");
-            String fromClient = "";
-            while ((fromClient = in.readLine()) != null) {
-                System.out.println("From client: " + fromClient);
-                if ("/kill server".equalsIgnoreCase(fromClient)) {
-                    // normally you wouldn't have a remote kill command, this is just for example
-                    // sake
-                    System.out.println("Client killed server");
-                    break;
-                } else if (fromClient.startsWith("/reverse")) {
-                    // another example of server-side command
-                    // Note: In the future command format processing will be client-side
-                    // then client will send just the necessary data to the server so the server
-                    // doesn't need to do as much string processing
-                    StringBuilder sb = new StringBuilder(fromClient.replace("/reverse ", ""));
-                    sb.reverse();
-                    String rev = sb.toString();
-                    System.out.println("To client: " + rev);
-                    out.println(rev);
-                } else {
-                    System.out.println("To client: " + fromClient);
-                    out.println(fromClient);
-                }
+        try (ServerSocket serverSocket = new ServerSocket(port)) {
+            while (true) {
+                Socket client = serverSocket.accept();
+                ServerThread thread = new ServerThread(client, this);
+                thread.start();
+                System.out.println("Client connected and handler started");
             }
         } catch (IOException e) {
             System.out.println("Exception from start()");
             e.printStackTrace();
-        } finally {
-            System.out.println("closing server socket");
         }
     }
 
@@ -61,10 +51,10 @@ public class Server {
         try {
             port = Integer.parseInt(args[0]);
         } catch (Exception e) {
-            // can ignore, will either be index out of bounds or type mismatch
-            // will default to the defined value prior to the try/catch
+            // default to 3000
         }
         server.start(port);
         System.out.println("Server Stopped");
     }
 }
+
