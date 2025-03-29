@@ -24,7 +24,7 @@ public class ServerThread extends Thread {
 
     /**
      * A wrapper method so we don't need to keep typing out the long/complex sysout
-     * line inside
+     * line insidef
      * 
      * @param message
      */
@@ -57,7 +57,7 @@ public class ServerThread extends Thread {
         // get communication channels to single client
         this.client = myClient;
         this.server = server; // In the future we'll have a different way to reference the Server
-        this.clientId = this.threadId();  // An id associated with the thread instance, used as a temporary identifier
+        this.clientId = this.threadId(); // An id associated with the thread instance, used as a temporary identifier
         this.onInitializationComplete = onInitializationComplete;
 
     }
@@ -201,6 +201,12 @@ public class ServerThread extends Thread {
                         server.handleReverseText(this, relevantText);
                         wasCommand = true;
                         break;
+                    case "shuffle":
+                        String shuffleText = String.join(" ", Arrays.copyOfRange(commandData, 2, commandData.length));
+                        server.handleShuffleText(this, shuffleText);
+                        wasCommand = true;
+                        break;
+
                     // added more cases/breaks as needed for other commands
                     default:
                         break;

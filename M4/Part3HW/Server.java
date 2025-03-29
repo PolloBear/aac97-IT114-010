@@ -13,6 +13,24 @@ public class Server {
     private final ConcurrentHashMap<Long, ServerThread> connectedClients = new ConcurrentHashMap<>();
     private boolean isRunning = true;
 
+    protected synchronized void handleShuffleText(ServerThread sender, String text) {
+        String shuffled = shuffle(text);
+        String message = "Shuffled from User[" + sender.getClientId() + "]: " + shuffled;
+        relay(null, message);
+    }
+    
+    private String shuffle(String input) {
+        // Shuffle characters in the input string
+        char[] chars = input.toCharArray();
+        for (int i = 0; i < chars.length; i++) {
+            int j = (int)(Math.random() * chars.length);
+            char temp = chars[i];
+            chars[i] = chars[j];
+            chars[j] = temp;
+        }
+        return new String(chars);
+    }
+    
     private void start(int port) {
         this.port = port;
         // server listening

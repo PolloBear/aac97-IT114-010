@@ -121,6 +121,13 @@ public class Client {
             String[] commandData = { Constants.COMMAND_TRIGGER, "reverse", text };
             sendToServer(String.join(",", commandData));
             wasCommand = true;
+        // UCID: aac97
+        // /shuffle handle
+        } else if (text.startsWith("/shuffle")) {
+            text = text.replace("/shuffle", "").trim();
+            String[] commandData = { Constants.COMMAND_TRIGGER, "shuffle", text };
+            sendToServer(String.join(",", commandData));
+            wasCommand = true;
         }
         return wasCommand;
     }
