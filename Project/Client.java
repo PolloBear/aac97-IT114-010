@@ -150,7 +150,17 @@ public enum Client {
             String[] commandData = { Constants.COMMAND_TRIGGER, Command.LEAVE_ROOM.command };
             sendToServer(String.join(",", commandData));
             wasCommand = true;
+        } else if (text.startsWith("/name")){
+            text = text.replace("/name", "").trim();
+            if (text == null || text.length() == 0) {
+                System.out.println(TextFX.colorize("This command requires a name as an argument", Color.RED));
+                return true;
+            }
+            String[] commandData = { Constants.COMMAND_TRIGGER, Command.SET_NAME.command, text };
+            sendToServer(String.join(",", commandData));
+            wasCommand = true;
         }
+
         return wasCommand;
     }
 

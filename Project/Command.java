@@ -11,7 +11,8 @@ public enum Command {
     REVERSE("reverse"),
     CREATE_ROOM("createroom"),
     LEAVE_ROOM("leaveroom"),
-    JOIN_ROOM("joinroom");
+    JOIN_ROOM("joinroom"),
+    SET_NAME("set_name");
 
     private static final HashMap<String, Command> BY_COMMAND = new HashMap<>();
     static {
