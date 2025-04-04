@@ -94,8 +94,12 @@ public class Room {
         }
 
         // Note: any desired changes to the message must be done before this line
-        String senderString = sender == null ? String.format("Room[%s]", getName())
-                : String.format("User[%s]", sender.getClientId());
+        String senderString;
+            if (sender == null) {
+                senderString = String.format("Room[%s]", getName());
+            } else {
+                senderString = sender.getUsername(); 
+        }
         // Note: formattedMessage must be final (or effectively final) since outside
         // scope can't be changed inside a callback function (see removeIf() below)
         final String formattedMessage = String.format("%s: %s", senderString, message);

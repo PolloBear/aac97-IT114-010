@@ -16,6 +16,8 @@ public class ServerThread extends Thread {
     private Socket client; // communication directly to "my" client
     private boolean isRunning = false; // control variable to stop this thread
     private ObjectOutputStream out; // exposed here for send()
+    private String username;
+
 
     private long clientId;
     private Consumer<ServerThread> onInitializationComplete; // callback to inform when this object is ready
@@ -56,6 +58,7 @@ public class ServerThread extends Thread {
         this.client = myClient;
         this.clientId = this.getId(); // An id associated with the thread instance, used as a temporary identifier
         this.onInitializationComplete = onInitializationComplete;
+        this.username = "User[" + this.clientId + "]";
 
     }
 
@@ -63,6 +66,15 @@ public class ServerThread extends Thread {
         // Note: We return clientId instead of threadId as we'll change this identifier
         // in the future
         return this.clientId;
+    }
+
+    public String getUsername(){
+        return username;
+    }
+    public void setUsername(String username){
+        if (username != null && !username.isEmpty()){
+            this.username = username;
+        }
     }
 
     /**
@@ -243,7 +255,21 @@ public class ServerThread extends Thread {
                         wasCommand = true;
                         break;
                     // added more cases/breaks as needed for other commands
+                    case SET_NAME:
+                        if (commandData.length >= 3) {
+                            String newName = commandData[2].trim();
+                            info("Changing username to: " + newName);
+                            setUsername(newName);
+                            sendToClient("Name successfully changed to: " + newName);
+                        } else {
+                        sendToClient("Name change failed. Usage: /name your_new_name");
+                        }
+                        wasCommand = true;
+                        break;
+                    
+                    
                     default:
+
                         break;
                 }
             }
