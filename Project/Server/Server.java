@@ -1,11 +1,14 @@
-package Project;
+package Project.Server;
 
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.ConcurrentHashMap;
 
-import Project.TextFX.Color;
+import Project.Common.TextFX;
+import Project.Common.TextFX.Color;
+import Project.Exceptions.DuplicateRoomException;
+import Project.Exceptions.RoomNotFoundException;
 
 public enum Server {
     INSTANCE; // Singleton instance
@@ -62,6 +65,7 @@ public enum Server {
                 ServerThread serverThread = new ServerThread(incomingClient, this::onServerThreadInitialized);
                 // start the thread (typically an external entity manages the lifecycle and we
                 // don't have the thread start itself)
+                //UCID:aac97 
                 serverThread.start();
                 // Note: We don't yet add the ServerThread reference to our connectedClients map
             }

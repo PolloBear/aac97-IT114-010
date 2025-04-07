@@ -1,4 +1,4 @@
-package Project;
+package Project.Client;
 
 
 import java.io.IOException;
@@ -12,7 +12,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import Project.TextFX.Color;
+import Project.Common.Command;
+import Project.Common.ConnectionPayload;
+import Project.Common.Constants;
+import Project.Common.Payload;
+import Project.Common.PayloadType;
+import Project.Common.RoomAction;
+import Project.Common.TextFX;
+import Project.Common.User;
+import Project.Common.TextFX.Color;
 
 /**
  * Demoing bi-directional communication between client and server in a
