@@ -1,4 +1,6 @@
 package Project;
+
+
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -190,13 +192,13 @@ public enum Client {
         Payload payload = new Payload();
         payload.setMessage(roomName);
         switch (roomAction) {
-            case RoomAction.CREATE:
+            case CREATE:
                 payload.setPayloadType(PayloadType.ROOM_CREATE);
                 break;
-            case RoomAction.JOIN:
+            case JOIN:
                 payload.setPayloadType(PayloadType.ROOM_JOIN);
                 break;
-            case RoomAction.LEAVE:
+            case LEAVE:
                 payload.setPayloadType(PayloadType.ROOM_LEAVE);
                 break;
             default:
