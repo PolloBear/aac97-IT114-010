@@ -16,6 +16,7 @@ public enum Server {
     // The key is the unique Room name and the Room is the instance
     private final ConcurrentHashMap<String, Room> rooms = new ConcurrentHashMap<>();
     private boolean isRunning = true;
+    private long nextClientId = 0;
 
     private void info(String message) {
         System.out.println(TextFX.colorize(String.format("Server: %s", message), Color.YELLOW));
@@ -81,13 +82,17 @@ public enum Server {
      * @param serverThread
      */
     private void onServerThreadInitialized(ServerThread serverThread) {
+        // Generate Server controlled clientId
+        nextClientId = Math.max(++nextClientId, 1);
+        serverThread.setClientId(nextClientId);
+        serverThread.sendClientId();// syncs the data to the Client
         // add initialized client to the lobby
-        info(String.format("*User[%s] initialized*", serverThread.getClientId()));
+        info(String.format("*%s initialized*", serverThread.getDisplayName()));
         try {
             joinRoom(Room.LOBBY, serverThread);
-            info(String.format("*User[%s] added to Lobby*", serverThread.getClientId()));
+            info(String.format("*%s added to Lobby*", serverThread.getDisplayName()));
         } catch (RoomNotFoundException e) {
-            info(String.format("*Error adding User[%s] to Lobby*", serverThread.getClientId()));
+            info(String.format("*Error adding %s to Lobby*", serverThread.getDisplayName()));
             e.printStackTrace();
         }
     }
@@ -152,7 +157,7 @@ public enum Server {
      */
     private synchronized void relayToAllRooms(ServerThread sender, String message) {
         // Note: any desired changes to the message must be done before this line
-        String senderString = sender == null ? "Server" : String.format("User[%s]", sender.getClientId());
+        String senderString = sender == null ? "Server" : sender.getDisplayName();
         // Note: formattedMessage must be final (or effectively final) since outside
         // scope can't changed inside a callback function (see removeIf() below)
         final String formattedMessage = String.format("%s: %s", senderString, message);

@@ -1,5 +1,4 @@
 package Project;
-
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -7,6 +6,7 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.Scanner;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -26,6 +26,12 @@ public enum Client {
             .compile("/connect\\s+(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}:\\d{3,5})");
     final Pattern localhostPattern = Pattern.compile("/connect\\s+(localhost:\\d{3,5})");
     private volatile boolean isRunning = true; // volatile for thread-safe visibility
+    private final ConcurrentHashMap<Long, User> knownClients = new ConcurrentHashMap<Long, User>();
+    private User myUser = new User();
+
+    private void error(String message) {
+        System.out.println(TextFX.colorize(String.format("%s", message), Color.RED));
+    }
 
     // needs to be private now that the enum logic is handling this
     private Client() {
@@ -102,65 +108,165 @@ public enum Client {
      */
     private boolean processClientCommand(String text) throws IOException {
         boolean wasCommand = false;
-        if (isConnection(text)) {
-            // replaces multiple spaces with a single space
-            // splits on the space after connect (gives us host and port)
-            // splits on : to get host as index 0 and port as index 1
-            String[] parts = text.trim().replaceAll(" +", " ").split(" ")[1].split(":");
-            connect(parts[0].trim(), Integer.parseInt(parts[1].trim()));
-            wasCommand = true;
-        } else if ("/quit".equalsIgnoreCase(text)) {
-            close();
-            wasCommand = true;
-        } else if ("/disconnect".equalsIgnoreCase(text)) {
-            // index 0 = trigger, index 1 = command, index N = command data
-            String[] commandData = { Constants.COMMAND_TRIGGER, Command.DISCONNECT.command };
-            sendToServer(String.join(",", commandData));
-            wasCommand = true;
-        } else if (text.startsWith("/reverse")) {
-            text = text.replace("/reverse", "").trim();
-            // index 0 = trigger, index 1 = command, index N = command data
-            String[] commandData = { Constants.COMMAND_TRIGGER, Command.REVERSE.command, text };
-            sendToServer(String.join(",", commandData));
-            wasCommand = true;
-        } else if (text.startsWith("/createroom")) {
-            text = text.replace("/createroom", "").trim();
-            if (text == null || text.length() == 0) {
-                System.out.println(TextFX.colorize("This command requires a room name as an argument", Color.RED));
-                return true;
+        if (text.startsWith(Constants.COMMAND_TRIGGER)) {
+            text = text.substring(1); // remove the /
+            // System.out.println("Checking command: " + text);
+            if (isConnection("/" + text)) {
+                if (myUser.getClientName() == null || myUser.getClientName().isEmpty()) {
+                    System.out.println(
+                            TextFX.colorize("Please set your name via /name <name> before connecting", Color.RED));
+                    return true;
+                }
+                // replaces multiple spaces with a single space
+                // splits on the space after connect (gives us host and port)
+                // splits on : to get host as index 0 and port as index 1
+                String[] parts = text.trim().replaceAll(" +", " ").split(" ")[1].split(":");
+                connect(parts[0].trim(), Integer.parseInt(parts[1].trim()));
+                sendClientName(myUser.getClientName());// sync follow-up data (handshake)
+                wasCommand = true;
+            } else if (text.startsWith(Command.NAME.command)) {
+                text = text.replace(Command.NAME.command, "").trim();
+                if (text == null || text.length() == 0) {
+                    System.out.println(TextFX.colorize("This command requires a name as an argument", Color.RED));
+                    return true;
+                }
+                myUser.setClientName(text);// temporary until we get a response from the server
+                System.out.println(TextFX.colorize(String.format("Name set to %s", myUser.getClientName()),
+                        Color.YELLOW));
+                wasCommand = true;
+            } else if (text.equalsIgnoreCase(Command.LIST_USERS.command)) {
+                System.out.println(TextFX.colorize("Known clients:", Color.CYAN));
+                knownClients.forEach((key, value) -> {
+                    System.out.println(TextFX.colorize(String.format("%s%s", value.getDisplayName(),
+                            key == myUser.getClientId() ? " (you)" : ""), Color.CYAN));
+                });
+                wasCommand = true;
+            } else if (Command.QUIT.command.equalsIgnoreCase(text)) {
+                close();
+                wasCommand = true;
+            } else if (Command.DISCONNECT.command.equalsIgnoreCase(text)) {
+                sendDisconnect();
+                wasCommand = true;
+            } else if (text.startsWith(Command.REVERSE.command)) {
+                text = text.replace(Command.REVERSE.command, "").trim();
+                sendReverse(text);
+                wasCommand = true;
+            } else if (text.startsWith(Command.CREATE_ROOM.command)) {
+                text = text.replace(Command.CREATE_ROOM.command, "").trim();
+                if (text == null || text.length() == 0) {
+                    System.out.println(TextFX.colorize("This command requires a room name as an argument", Color.RED));
+                    return true;
+                }
+                sendRoomAction(text, RoomAction.CREATE);
+                wasCommand = true;
+            } else if (text.startsWith(Command.JOIN_ROOM.command)) {
+                text = text.replace(Command.JOIN_ROOM.command, "").trim();
+                if (text == null || text.length() == 0) {
+                    System.out.println(TextFX.colorize("This command requires a room name as an argument", Color.RED));
+                    return true;
+                }
+                sendRoomAction(text, RoomAction.JOIN);
+                wasCommand = true;
+            } else if (text.startsWith(Command.LEAVE_ROOM.command) || text.startsWith("leave")) {
+                // Note: Accounts for /leave and /leaveroom variants (or anything beginning with
+                // /leave)
+                sendRoomAction(text, RoomAction.LEAVE);
+                wasCommand = true;
             }
-            // index 0 = trigger, index 1 = command, index N = command data
-            String[] commandData = { Constants.COMMAND_TRIGGER, Command.CREATE_ROOM.command, text };
-            sendToServer(String.join(",", commandData));
-            wasCommand = true;
-        } else if (text.startsWith("/joinroom")) {
-            text = text.replace("/joinroom", "").trim();
-            if (text == null || text.length() == 0) {
-                System.out.println(TextFX.colorize("This command requires a room name as an argument", Color.RED));
-                return true;
-            }
-            // index 0 = trigger, index 1 = command, index N = command data
-            String[] commandData = { Constants.COMMAND_TRIGGER, Command.JOIN_ROOM.command, text };
-            sendToServer(String.join(",", commandData));
-            wasCommand = true;
-        } else if (text.startsWith("/leave")) {
-            // Note: Accounts for /leave and /leaveroom variants (or anything beginning with
-            // /leave)
-            // index 0 = trigger, index 1 = command, index N = command data
-            String[] commandData = { Constants.COMMAND_TRIGGER, Command.LEAVE_ROOM.command };
-            sendToServer(String.join(",", commandData));
-            wasCommand = true;
-        } else if (text.startsWith("/name")){
-            text = text.replace("/name", "").trim();
-            
-            
-            String[] commandData = { Constants.COMMAND_TRIGGER, Command.SET_NAME.command, text };
-            sendToServer(String.join(",", commandData));
-            wasCommand = true;
         }
-
         return wasCommand;
     }
+
+    // Start Send*() methods
+
+    /**
+     * Sends a room action to the server
+     * 
+     * @param roomName
+     * @param roomAction (join, leave, create)
+     * @throws IOException
+     */
+    private void sendRoomAction(String roomName, RoomAction roomAction) throws IOException {
+        Payload payload = new Payload();
+        payload.setMessage(roomName);
+        switch (roomAction) {
+            case RoomAction.CREATE:
+                payload.setPayloadType(PayloadType.ROOM_CREATE);
+                break;
+            case RoomAction.JOIN:
+                payload.setPayloadType(PayloadType.ROOM_JOIN);
+                break;
+            case RoomAction.LEAVE:
+                payload.setPayloadType(PayloadType.ROOM_LEAVE);
+                break;
+            default:
+                System.out.println(TextFX.colorize("Invalid room action", Color.RED));
+                break;
+        }
+        sendToServer(payload);
+    }
+
+    /**
+     * Sends a reverse message action to the server
+     * 
+     * @param message
+     * @throws IOException
+     */
+    private void sendReverse(String message) throws IOException {
+        Payload payload = new Payload();
+        payload.setMessage(message);
+        payload.setPayloadType(PayloadType.REVERSE);
+        sendToServer(payload);
+
+    }
+
+    /**
+     * Sends a disconnect action to the server
+     * 
+     * @throws IOException
+     */
+    private void sendDisconnect() throws IOException {
+        Payload payload = new Payload();
+        payload.setPayloadType(PayloadType.DISCONNECT);
+        sendToServer(payload);
+    }
+
+    /**
+     * Sends a message to the server
+     * 
+     * @param message
+     * @throws IOException
+     */
+    private void sendMessage(String message) throws IOException {
+        Payload payload = new Payload();
+        payload.setMessage(message);
+        payload.setPayloadType(PayloadType.MESSAGE);
+        sendToServer(payload);
+    }
+
+    /**
+     * Sends the client's name to the server (what the user desires to be called)
+     * 
+     * @param name
+     * @throws IOException
+     */
+    private void sendClientName(String name) throws IOException {
+        ConnectionPayload payload = new ConnectionPayload();
+        payload.setClientName(name);
+        payload.setPayloadType(PayloadType.CLIENT_CONNECT);
+        sendToServer(payload);
+    }
+
+    private void sendToServer(Payload payload) throws IOException {
+        if (isConnected()) {
+            out.writeObject(payload);
+            out.flush(); // good practice to ensure data is written out immediately
+        } else {
+            System.out.println(
+                    "Not connected to server (hint: type `/connect host:port` without the quotes and replace host/port with the necessary info)");
+        }
+    }
+    // End Send*() methods
 
     public void start() throws IOException {
         System.out.println("Client starting");
@@ -178,9 +284,10 @@ public enum Client {
     private void listenToServer() {
         try {
             while (isRunning && isConnected()) {
-                String fromServer = (String) in.readObject(); // blocking read
+                Payload fromServer = (Payload) in.readObject(); // blocking read
                 if (fromServer != null) {
-                    System.out.println(TextFX.colorize(fromServer, Color.BLUE));
+                    processPayload(fromServer);
+
                 } else {
                     System.out.println("Server disconnected");
                     break;
@@ -200,6 +307,120 @@ public enum Client {
         System.out.println("listenToServer thread stopped");
     }
 
+    private void processPayload(Payload payload) {
+        switch (payload.getPayloadType()) {
+            case CLIENT_CONNECT:// unused
+                break;
+            case CLIENT_ID:
+                processClientData(payload);
+                break;
+            case DISCONNECT:
+                processDisconnect(payload);
+                break;
+            case MESSAGE:
+                processMessage(payload);
+                break;
+            case REVERSE:
+                processReverse(payload);
+                break;
+            case ROOM_CREATE: // unused
+                break;
+            case ROOM_JOIN:
+                processRoomAction(payload);
+                break;
+            case ROOM_LEAVE:
+                processRoomAction(payload);
+                break;
+            case SYNC_CLIENT:
+                processRoomAction(payload);
+                break;
+            default:
+                System.out.println(TextFX.colorize("Unhandled payload type", Color.YELLOW));
+                break;
+
+        }
+    }
+
+    // Start process*() methods
+    private void processClientData(Payload payload) {
+        if (myUser.getClientId() != Constants.DEFAULT_CLIENT_ID) {
+            System.out.println(TextFX.colorize("Client ID already set, this shouldn't happen", Color.YELLOW));
+
+        }
+        myUser.setClientId(payload.getClientId());
+        myUser.setClientName(((ConnectionPayload) payload).getClientName());// confirmation from Server
+        knownClients.put(myUser.getClientId(), myUser);
+        System.out.println(TextFX.colorize("Connected", Color.GREEN));
+    }
+
+    private void processDisconnect(Payload payload) {
+        if (payload.getClientId() == myUser.getClientId()) {
+            knownClients.clear();
+            myUser.reset();
+            System.out.println(TextFX.colorize("You disconnected", Color.RED));
+        } else if (knownClients.containsKey(payload.getClientId())) {
+            User disconnectedUser = knownClients.remove(payload.getClientId());
+            if (disconnectedUser != null) {
+                System.out.println(TextFX.colorize(String.format("%s disconnected", disconnectedUser.getDisplayName()),
+                        Color.RED));
+            }
+        }
+
+    }
+
+    private void processRoomAction(Payload payload) {
+        if (!(payload instanceof ConnectionPayload)) {
+            error("Invalid payload subclass for processRoomAction");
+            return;
+        }
+        ConnectionPayload connectionPayload = (ConnectionPayload) payload;
+        // use DEFAULT_CLIENT_ID to clear knownClients (mostly for disconnect and room
+        // transitions)
+        if (connectionPayload.getClientId() == Constants.DEFAULT_CLIENT_ID) {
+            knownClients.clear();
+            return;
+        }
+        switch (connectionPayload.getPayloadType()) {
+
+            case ROOM_LEAVE:
+                // remove from map
+                if (knownClients.containsKey(connectionPayload.getClientId())) {
+                    knownClients.remove(connectionPayload.getClientId());
+                }
+                if (connectionPayload.getMessage() != null) {
+                    System.out.println(TextFX.colorize(connectionPayload.getMessage(), Color.YELLOW));
+                }
+
+                break;
+            case ROOM_JOIN:
+                if (connectionPayload.getMessage() != null) {
+                    System.out.println(TextFX.colorize(connectionPayload.getMessage(), Color.GREEN));
+                }
+                // cascade to manage knownClients
+            case SYNC_CLIENT:
+                // add to map
+                if (!knownClients.containsKey(connectionPayload.getClientId())) {
+                    User user = new User();
+                    user.setClientId(connectionPayload.getClientId());
+                    user.setClientName(connectionPayload.getClientName());
+                    knownClients.put(connectionPayload.getClientId(), user);
+                }
+                break;
+            default:
+                error("Invalid payload type for processRoomAction");
+                break;
+        }
+    }
+
+    private void processMessage(Payload payload) {
+        System.out.println(TextFX.colorize(payload.getMessage(), Color.BLUE));
+    }
+
+    private void processReverse(Payload payload) {
+        System.out.println(TextFX.colorize(payload.getMessage(), Color.PURPLE));
+    }
+    // End process*() methods
+
     /**
      * Listens for keyboard input from the user
      */
@@ -209,7 +430,7 @@ public enum Client {
             while (isRunning) { // Run until isRunning is false
                 String userInput = si.nextLine();
                 if (!processClientCommand(userInput)) {
-                    sendToServer(userInput);
+                    sendMessage(userInput);
                 }
             }
         } catch (IOException ioException) {
@@ -217,16 +438,6 @@ public enum Client {
             ioException.printStackTrace();
         }
         System.out.println("listenToInput thread stopped");
-    }
-
-    private void sendToServer(String message) throws IOException {
-        if (isConnected()) {
-            out.writeObject(message);
-            out.flush(); // good practice to ensure data is written out immediately
-        } else {
-            System.out.println(
-                    "Not connected to server (hint: type `/connect host:port` without the quotes and replace host/port with the necessary info)");
-        }
     }
 
     /**
@@ -278,6 +489,5 @@ public enum Client {
             System.out.println("Exception from main()");
             e.printStackTrace();
         }
-    
     }
 }

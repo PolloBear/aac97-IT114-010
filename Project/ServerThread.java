@@ -1,10 +1,6 @@
 package Project;
 
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.net.Socket;
-import java.util.Arrays;
 import java.util.Objects;
 import java.util.function.Consumer;
 import Project.TextFX.Color;
@@ -12,16 +8,8 @@ import Project.TextFX.Color;
 /**
  * A server-side representation of a single client
  */
-public class ServerThread extends Thread {
-    private Socket client; // communication directly to "my" client
-    private boolean isRunning = false; // control variable to stop this thread
-    private ObjectOutputStream out; // exposed here for send()
-    private String username;
-
-
-    private long clientId;
+public class ServerThread extends BaseServerThread {
     private Consumer<ServerThread> onInitializationComplete; // callback to inform when this object is ready
-    private Room currentRoom;
 
     /**
      * A wrapper method so we don't need to keep typing out the long/complex sysout
@@ -29,17 +17,8 @@ public class ServerThread extends Thread {
      * 
      * @param message
      */
-    private void info(String message) {
-        System.out.println(String.format("Thread[%s]: %s", this.getClientId(), message));
-    }
-
-    /**
-     * Returns the status of this ServerThread
-     * 
-     * @return
-     */
-    public boolean isRunning() {
-        return isRunning;
+    protected void info(String message) {
+        System.out.println(TextFX.colorize(String.format("Thread[%s]: %s", this.getClientId(), message), Color.CYAN));
     }
 
     /**
@@ -56,237 +35,130 @@ public class ServerThread extends Thread {
         info("ServerThread created");
         // get communication channels to single client
         this.client = myClient;
-        this.clientId = this.getId(); // An id associated with the thread instance, used as a temporary identifier
+        // this.clientId = this.threadId(); // An id associated with the thread
+        // instance, used as a temporary identifier
         this.onInitializationComplete = onInitializationComplete;
-        this.username = "User[" + this.clientId + "]";
 
     }
 
-    public long getClientId() {
-        // Note: We return clientId instead of threadId as we'll change this identifier
-        // in the future
-        return this.clientId;
+    // Start Send*() Methods
+    protected boolean sendDisconnect(long clientId) {
+        Payload payload = new Payload();
+        payload.setClientId(clientId);
+        payload.setPayloadType(PayloadType.DISCONNECT);
+        return sendToClient(payload);
     }
 
-    public String getUsername(){
-        return username;
-    }
-    public void setUsername(String username){
-        if (username != null && !username.isEmpty()){
-            this.username = username;
-        }
+    protected boolean sendResetUserList() {
+        return sendClientInfo(Constants.DEFAULT_CLIENT_ID, null, RoomAction.JOIN);
     }
 
     /**
-     * Returns the current Room associated with this ServerThread
+     * Syncs Client Info (id, name, join status) to the client
      * 
-     * @return
+     * @param clientId   use -1 for reset/clear
+     * @param clientName
+     * @param action     RoomAction of Join or Leave
+     * @return true for successful send
      */
-    protected Room getCurrentRoom() {
-        return this.currentRoom;
+    protected boolean sendClientInfo(long clientId, String clientName, RoomAction action) {
+        return sendClientInfo(clientId, clientName, action, false);
     }
 
     /**
-     * Allows the setting of a non-null Room reference to this ServerThread
+     * Syncs Client Info (id, name, join status) to the client
      * 
-     * @param room
+     * @param clientId   use -1 for reset/clear
+     * @param clientName
+     * @param action     RoomAction of Join or Leave
+     * @param isSync     True is used to not show output on the client side (silent
+     *                   sync)
+     * @return true for successful send
      */
-    protected void setCurrentRoom(Room room) {
-        if (room == null) {
-            throw new NullPointerException("Room argument can't be null");
+    protected boolean sendClientInfo(long clientId, String clientName, RoomAction action, boolean isSync) {
+        ConnectionPayload payload = new ConnectionPayload();
+        switch (action) {
+            case JOIN:
+                payload.setPayloadType(PayloadType.ROOM_JOIN);
+                break;
+            case LEAVE:
+                payload.setPayloadType(PayloadType.ROOM_LEAVE);
+                break;
+            default:
+                break;
         }
-        if (room == currentRoom) {
-            System.out.println(
-                    String.format("ServerThread set to the same room [%s], was this intentional?", room.getName()));
+        if (isSync) {
+            payload.setPayloadType(PayloadType.SYNC_CLIENT);
         }
-        currentRoom = room;
+        payload.setClientId(clientId);
+        payload.setClientName(clientName);
+        return sendToClient(payload);
     }
 
     /**
-     * One of the two ways to get this to exit the listen loop
+     * Sends this client's id to the client.
+     * This will be a successfully connection handshake
+     * 
+     * @return true for successful send
      */
-    protected void disconnect() {
-        if (!isRunning) {
-            // prevent multiple triggers if this gets called consecutively
-            return;
-        }
-        info("Thread being disconnected by server");
-        isRunning = false;
-        this.interrupt(); // breaks out of blocking read in the run() method
-        cleanup(); // good practice to ensure data is written out immediately
+    protected boolean sendClientId() {
+        ConnectionPayload payload = new ConnectionPayload();
+        payload.setPayloadType(PayloadType.CLIENT_ID);
+        payload.setClientId(getClientId());
+        payload.setClientName(getClientName());// Can be used as a Server-side override of username (i.e., profanity
+                                               // filter)
+        return sendToClient(payload);
     }
 
     /**
-     * Sends the message over the socket
+     * Sends a message to the client
      * 
      * @param message
-     * @return true if no errors were encountered
+     * @return true for successful send
      */
-    protected boolean sendToClient(String message) {
-        if (!isRunning) {
-            return false;
-        }
-        try {
-            out.writeObject(message);
-            out.flush();
-            return true;
-        } catch (IOException e) {
-            info("Error sending message to client (most likely disconnected)");
-            // comment this out to inspect the stack trace
-            // e.printStackTrace();
-            cleanup();
-            return false;
+    protected boolean sendMessage(String message) {
+        Payload payload = new Payload();
+        payload.setPayloadType(PayloadType.MESSAGE);
+        payload.setMessage(message);
+        return sendToClient(payload);
+    }
+
+    // End Send*() Methods
+    @Override
+    protected void processPayload(Payload incoming) {
+
+        switch (incoming.getPayloadType()) {
+            case CLIENT_CONNECT:
+                setClientName(((ConnectionPayload) incoming).getClientName().trim());
+               
+                break;
+            case DISCONNECT:
+                currentRoom.handleDisconnect(this);
+                break;
+            case MESSAGE:
+                currentRoom.handleMessage(this, incoming.getMessage());
+                break;
+            case REVERSE:
+                currentRoom.handleReverseText(this, incoming.getMessage());
+                break;
+            case ROOM_CREATE:
+                currentRoom.handleCreateRoom(this, incoming.getMessage());
+                break;
+            case ROOM_JOIN:
+                currentRoom.handleJoinRoom(this, incoming.getMessage());
+                break;
+            case ROOM_LEAVE:
+                currentRoom.handleJoinRoom(this, Room.LOBBY);
+                break;
+            default:
+                System.out.println(TextFX.colorize("Unknown payload type received", Color.RED));
+                break;
         }
     }
 
     @Override
-    public void run() {
-        info("Thread starting");
-        try (ObjectOutputStream out = new ObjectOutputStream(client.getOutputStream());
-                ObjectInputStream in = new ObjectInputStream(client.getInputStream());) {
-            this.out = out;
-            isRunning = true;
-            onInitializationComplete.accept(this); // Notify server that initialization is complete
-            String fromClient;
-            /**
-             * isRunning is a flag to let us manage the loop exit condition
-             * fromClient (in.readObject()) is a blocking method that waits until data is
-             * received
-             * - null would likely mean a disconnect so we use a "set and check" logic to
-             * alternatively exit the loop
-             */
-            while (isRunning) {
-                try {
-                    fromClient = (String) in.readObject(); // blocking method
-                    if (fromClient == null) {
-                        throw new IOException("Connection interrupted"); // Specific exception for a clean break
-                    } else {
-                        info(TextFX.colorize("Received from my client: " + fromClient, Color.CYAN));
-                        processPayload(fromClient);
-                    }
-                } catch (ClassCastException | ClassNotFoundException cce) {
-                    System.err.println("Error reading object as specified type: " + cce.getMessage());
-                    cce.printStackTrace();
-                } catch (IOException e) {
-                    if (Thread.currentThread().isInterrupted()) {
-                        info("Thread interrupted during read (likely from the disconnect() method)");
-                        break;
-                    }
-                    info("IO exception while reading from client");
-                    e.printStackTrace();
-                    break;
-                }
-            } // close while loop
-        } catch (Exception e) {
-            // happens when client disconnects
-            info("General Exception");
-            e.printStackTrace();
-            info("My Client disconnected");
-        } finally {
-            isRunning = false;
-            info("Exited thread loop. Cleaning up connection");
-            cleanup();
-        }
-    }
-
-    private void processPayload(String incoming) {
-        Objects.requireNonNull(currentRoom, "Can't process a payload when the current room is null");
-        if (!processCommand(incoming)) {
-            // if not command; send message to all clients via Server
-            currentRoom.handleMessage(this, incoming);
-        }
-    }
-
-    /**
-     * Attempts to see if the message is a command and process its action
-     * 
-     * @param message
-     * @param sender
-     * @return true if it was a command, false otherwise
-     */
-    private boolean processCommand(String message) {
-        Objects.requireNonNull(currentRoom, "Can't process a command when the current room is null");
-
-        boolean wasCommand = false; // control var to use as the return status
-
-        // using "[cmd]" as a temporary trigger until we update how the data is passed
-        // over the socket
-        if (message.startsWith(Constants.COMMAND_TRIGGER)) {
-            // expected format will be csv for now to keep it simple
-            String[] commandData = message.split(",");
-            if (commandData.length >= 2) {
-
-                // index 0 is the trigger word
-                // index 1 is the command
-
-                // part 4 added the Command enum
-                final Command command = Command.stringToCommand(commandData[1].trim());
-
-                System.out.println(TextFX.colorize("Checking command: " + command, Color.YELLOW));
-                // index N are the data from the command
-                // Note: not all commands require data, some are simply actions/triggers to
-                // process like quit
-                switch (command) {
-                    case QUIT:
-                    case DISCONNECT:
-                    case LOGOUT:
-                    case LOGOFF:
-                        currentRoom.handleDisconnect(this);
-                        wasCommand = true;
-                        break;
-                    case REVERSE:
-                        // ignore the first two indexes (trigger, command)
-                        String relevantText = String.join(" ", Arrays.copyOfRange(commandData, 2, commandData.length));
-                        currentRoom.handleReverseText(this, relevantText);
-                        wasCommand = true;
-                        break;
-                    case CREATE_ROOM:
-                        currentRoom.handleCreateRoom(this, commandData[2]);
-                        wasCommand = true;
-                        break;
-                    case JOIN_ROOM:
-                        currentRoom.handleJoinRoom(this, commandData[2]);
-                        wasCommand = true;
-                        break;
-                    case LEAVE_ROOM:
-                        // leaving simply joins the lobby since a ServerThread must always exist in a
-                        // Room
-                        currentRoom.handleJoinRoom(this, Room.LOBBY);
-                        wasCommand = true;
-                        break;
-                    // added more cases/breaks as needed for other commands
-                    case SET_NAME:
-                        if (commandData.length >= 3) {
-                            String newName = commandData[2].trim();
-                            info("Changing username to: " + newName);
-                            setUsername(newName);
-                            sendToClient("Name successfully changed to: " + newName);
-                        } else {
-                        sendToClient("Name change failed. Usage: /name your_new_name");
-                        }
-                        wasCommand = true;
-                        break;
-                    
-                    
-                    default:
-
-                        break;
-                }
-            }
-
-        }
-        return wasCommand;
-    }
-
-    private void cleanup() {
-        info("ServerThread cleanup() start");
-        try {
-            // close server-side end of connection
-            client.close();
-            info("Closed Server-side Socket");
-        } catch (IOException e) {
-            info("Client already closed");
-        }
-        info("ServerThread cleanup() end");
+    protected void onInitialized() {
+        // once receiving the desired client name the object is ready
+        onInitializationComplete.accept(this);
     }
 }
