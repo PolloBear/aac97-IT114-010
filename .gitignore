@@ -35,3 +35,5 @@ config.*
 .DS_Store
 .vscode
 .idea
+*.log*
+sources.txt
