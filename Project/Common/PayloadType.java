@@ -9,7 +9,7 @@ public enum PayloadType {
     ROOM_CREATE,
     ROOM_JOIN,
     ROOM_LEAVE,
-    ROOOM_LIST,
+    ROOM_LIST,
     REVERSE,
     MESSAGE // sender and message
 }
