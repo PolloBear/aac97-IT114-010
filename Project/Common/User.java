@@ -1,10 +1,9 @@
-package Project.Client;
-
-import Project.Common.Constants;
+package Project.Common;
 
 public class User {
     private long clientId = Constants.DEFAULT_CLIENT_ID;
     private String clientName;
+    private boolean isReady = false;
 
     /**
      * @return the clientId
@@ -38,8 +37,17 @@ public class User {
         return String.format("%s#%s", this.clientName, this.clientId);
     }
 
+    public boolean isReady() {
+        return isReady;
+    }
+
+    public void setReady(boolean isReady) {
+        this.isReady = isReady;
+    }
+
     public void reset() {
         this.clientId = Constants.DEFAULT_CLIENT_ID;
         this.clientName = null;
+        this.isReady = false;
     }
 }
