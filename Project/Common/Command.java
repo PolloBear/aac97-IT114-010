@@ -1,6 +1,5 @@
 package Project.Common;
 
-
 import java.util.HashMap;
 
 public enum Command {
@@ -14,7 +13,9 @@ public enum Command {
     JOIN_ROOM("joinroom"),
     NAME("name"),
     LIST_USERS("users"),
-    LIST_ROOMS("listrooms");
+    LIST_ROOMS("listrooms"),
+    READY("ready"),
+    DO_SOMETHING("something"),;
 
     private static final HashMap<String, Command> BY_COMMAND = new HashMap<>();
     static {
