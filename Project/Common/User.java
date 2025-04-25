@@ -6,6 +6,12 @@ public class User {
     private boolean isReady = false;
     private boolean tookTurn = false;
 
+
+    private String choice = null;
+    private boolean eliminated = false;
+    private int points = 0;
+
+
     /**
      * @return the clientId
      */
@@ -66,4 +72,42 @@ public class User {
     public void setTookTurn(boolean tookTurn) {
         this.tookTurn = tookTurn;
     }
+
+    ///Seting the game
+    public String getChoice() {
+        return choice;
+    }
+
+    public void setChoice(String choice) {
+        this.choice = choice;
+    }
+
+    public void resetChoice() {
+        this.choice = null;
+    }
+
+    public boolean isEliminated() {
+        return eliminated;
+    }
+
+    public void eliminate() {
+        this.eliminated = true;
+    }
+
+    public void resetElimination() {
+        this.eliminated = false;
+    }
+
+    public int getPoints() {
+        return points;
+    }
+
+    public void addPoint() {
+        this.points++;
+    }
+
+    public void resetPoints() {
+        this.points = 0;
+    }
+
 }

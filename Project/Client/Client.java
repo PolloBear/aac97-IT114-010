@@ -218,6 +218,25 @@ public enum Client {
                 sendDoTurn(text);
                 wasCommand = true;
             }
+            else if (text.startsWith("pick")) {
+                String[] parts = text.split(" ");
+                if (parts.length < 2) {
+                    LoggerUtil.INSTANCE.warning(TextFX.colorize("Usage: /pick <r|p|s>", Color.RED));
+                    return true;
+                }
+                String choice = parts[1].trim().toLowerCase();
+                if (!choice.matches("[rps]")) {
+                    LoggerUtil.INSTANCE.warning(TextFX.colorize("Invalid pick. Use 'r', 'p', or 's'", Color.RED));
+                    return true;
+                }
+            
+                Payload pickPayload = new Payload();
+                pickPayload.setPayloadType(PayloadType.PICK);
+                pickPayload.setMessage(choice);
+                sendToServer(pickPayload);
+                LoggerUtil.INSTANCE.info(TextFX.colorize("You picked: " + choice, Color.CYAN));
+                wasCommand = true;
+            }
         }
         return wasCommand;
     }

@@ -1,12 +1,18 @@
 package Project.Server;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 import Project.Common.Constants;
 import Project.Common.LoggerUtil;
 import Project.Common.Phase;
+import Project.Common.ReadyPayload;
 import Project.Common.TimedEvent;
+import Project.Common.User;
 import Project.Exceptions.NotReadyException;
 import Project.Exceptions.PhaseMismatchException;
 import Project.Exceptions.PlayerNotFoundException;
+import Project.Common.PayloadType;
 
 public class GameRoom extends BaseGameRoom {
 
@@ -84,15 +90,24 @@ public class GameRoom extends BaseGameRoom {
 
     /** {@inheritDoc} */
     @Override
-    protected void onRoundStart() {
-        LoggerUtil.INSTANCE.info("onRoundStart() start");
-        resetRoundTimer();
-        resetTurnStatus();
-        round++;
-        relay(null, String.format("Round %d has started", round));
-        startRoundTimer();
-        LoggerUtil.INSTANCE.info("onRoundStart() end");
-    }
+protected void onRoundStart() {
+    LoggerUtil.INSTANCE.info("onRoundStart() start");
+    resetRoundTimer();
+    resetTurnStatus();
+    round++;
+    relay(null, String.format("Round %d has started", round));
+
+    clientsInRoom.values().forEach(sp -> {
+        User u = sp.getUser();
+        if (!u.isEliminated()) {
+            u.resetChoice();
+        }
+    });
+
+    startRoundTimer();
+    LoggerUtil.INSTANCE.info("onRoundStart() end");
+}
+
 
     /** {@inheritDoc} */
     @Override
@@ -114,22 +129,66 @@ public class GameRoom extends BaseGameRoom {
         LoggerUtil.INSTANCE.info("onTurnEnd() end");
     }
 
+
+////// shows who the winner is 
+    private void broadcastWinner() {
+        User winner = clientsInRoom.values().stream()
+            .map(ServerThread::getUser)
+            .filter(u -> !u.isEliminated())
+            .findFirst()
+            .orElse(null);
+    
+        if (winner != null) {
+            relay(null, "Game Over! The winner is: " + winner.getDisplayName());
+        }
+    }
+    
     // Note: logic between Round Start and Round End is typically handled via timers
     // and user interaction
     /** {@inheritDoc} */
     @Override
-    protected void onRoundEnd() {
-        LoggerUtil.INSTANCE.info("onRoundEnd() start");
-        resetRoundTimer(); // reset timer if round ended without the time expiring
+protected void onRoundEnd() {
+    LoggerUtil.INSTANCE.info("onRoundEnd() start");
+    resetRoundTimer(); // reset timer if round ended without the time expiring
 
-        LoggerUtil.INSTANCE.info("onRoundEnd() end");
-        if (round >= 3) {
-            onSessionEnd();
+    clientsInRoom.values().forEach(sp -> {
+        User user = sp.getUser();
+        if (!user.isEliminated() && user.getChoice() == null) {
+            user.eliminate();
+            relay(null, user.getDisplayName() + " did not pick and is eliminated.");
         }
-        else{
-            onRoundStart();
-        }
+    });
+
+    processBattles();
+    syncPointsToClients();
+
+    // Check for winner by points instead of eliminations
+    final int WINNING_SCORE = 3; // or whatever number you want
+    User winner = clientsInRoom.values().stream()
+        .map(ServerThread::getUser)
+        .filter(u -> u.getPoints() >= WINNING_SCORE)
+        .findFirst()
+        .orElse(null);
+
+    if (winner != null) {
+        relay(null, "Game Over! The winner is: " + winner.getDisplayName());
+        onSessionEnd();
+        return;
     }
+
+    // Reset eliminated status (so players can continue next round)
+    clientsInRoom.values().forEach(sp -> {
+        User user = sp.getUser();
+        if (!user.isEliminated()) {
+            user.resetChoice(); // only reset choice for players who are still in the game
+        }
+    });
+
+    onRoundStart(); // Continue to next round
+    LoggerUtil.INSTANCE.info("onRoundEnd() end");
+}
+
+
 
     /** {@inheritDoc} */
     @Override
@@ -187,16 +246,14 @@ public class GameRoom extends BaseGameRoom {
     }
 
     private void checkAllTookTurn() {
-        int numReady = clientsInRoom.values().stream()
-                .filter(sp -> sp.isReady())
-                .toList().size();
-        int numTookTurn = clientsInRoom.values().stream()
-                // ensure to verify the isReady part since it's against the original list
+        int numReady = (int) clientsInRoom.values().stream()
+                .filter(ServerThread::isReady)
+                .count();
+        int numTookTurn = (int) clientsInRoom.values().stream()
                 .filter(sp -> sp.isReady() && sp.didTakeTurn())
-                .toList().size();
+                .count();
         if (numReady == numTookTurn) {
-            relay(null,
-                    String.format("All players have taken their turn (%d/%d) ending the round", numTookTurn, numReady));
+            relay(null, String.format("All players have taken their turn (%d/%d) ending the round", numTookTurn, numReady));
             onRoundEnd();
         }
     }
@@ -240,4 +297,128 @@ public class GameRoom extends BaseGameRoom {
     }
 
     // end receive data from ServerThread (GameRoom specific)
+
+   
+
+    protected void handlePick(ServerThread sender, String choice) {
+        try {
+            checkPlayerInRoom(sender);
+            checkCurrentPhase(sender, Phase.IN_PROGRESS);
+            checkIsReady(sender);
+            User player = sender.getUser();
+    
+            if (player.isEliminated()) {
+                sender.sendMessage(Constants.DEFAULT_CLIENT_ID, "You are eliminated and cannot pick.");
+                return;
+            }
+    
+            if (player.getChoice() != null) {
+                sender.sendMessage(Constants.DEFAULT_CLIENT_ID, "You have already made your choice.");
+                return;
+            }
+    
+            if (!choice.matches("[rps]")) {
+                sender.sendMessage(Constants.DEFAULT_CLIENT_ID, "Invalid choice. Use /pick r, /pick p, or /pick s.");
+                return;
+            }
+    
+            player.setChoice(choice);
+            sender.sendMessage(Constants.DEFAULT_CLIENT_ID, "Your choice has been recorded.");
+    
+            checkAllPicked();
+        } catch (Exception e) {
+            LoggerUtil.INSTANCE.severe("handlePick exception", e);
+        }
+    }
+    
+
+    private void checkAllPicked() {
+        long activePlayers = clientsInRoom.values().stream()
+            .map(ServerThread::getUser)
+            .filter(u -> !u.isEliminated())
+            .count();
+    
+        if (activePlayers <= 1) {
+            // Not enough active players to trigger a full round
+            return;
+        }
+    
+        boolean allPicked = clientsInRoom.values().stream()
+            .map(ServerThread::getUser)
+            .filter(u -> !u.isEliminated())
+            .allMatch(u -> u.getChoice() != null);
+    
+        if (allPicked) {
+            onRoundEnd(); // Only trigger round end if >1 players are active AND all have picked
+        }
+    }
+    
+//
+private void processBattles() {
+    List<User> activeUsers = clientsInRoom.values().stream()
+        .map(ServerThread::getUser)
+        .filter(u -> !u.isEliminated() && u.getChoice() != null)
+        .toList();
+
+    if (activeUsers.size() < 2) {
+        return;
+    }
+
+    // Count how many chose each option
+    long rockCount = activeUsers.stream().filter(u -> u.getChoice().equals("r")).count();
+    long paperCount = activeUsers.stream().filter(u -> u.getChoice().equals("p")).count();
+    long scissorsCount = activeUsers.stream().filter(u -> u.getChoice().equals("s")).count();
+
+    // Determine what beats what
+    String winningChoice = null;
+
+    if (rockCount > 0 && paperCount > 0 && scissorsCount == 0) {
+        winningChoice = "p"; // Paper beats Rock
+    } else if (rockCount > 0 && paperCount == 0 && scissorsCount > 0) {
+        winningChoice = "r"; // Rock beats Scissors
+    } else if (rockCount == 0 && paperCount > 0 && scissorsCount > 0) {
+        winningChoice = "s"; // Scissors beats Paper
+    }
+
+    for (ServerThread sp : clientsInRoom.values()) {
+        User user = sp.getUser();
+
+        if (user.isEliminated() || user.getChoice() == null) continue;
+
+        if (winningChoice == null) {
+            sp.sendMessage("It's a tie with everyone!");
+        } else if (user.getChoice().equals(winningChoice)) {
+            user.addPoint();
+            sp.sendMessage("You won this round!");
+        } else {
+            user.eliminate();
+            sp.sendMessage("You lost this round.");
+        }
+    }
+}
+
+
+//
+private String evaluateBattle(String a, String b) {
+    if (a.equals(b)) return "tie";
+    if ((a.equals("r") && b.equals("s")) ||
+        (a.equals("p") && b.equals("r")) ||
+        (a.equals("s") && b.equals("p"))) {
+        return "a";
+    } else {
+        return "b";
+    }
+}
+private void syncPointsToClients() {
+    clientsInRoom.values().forEach(sp -> {
+        User user = sp.getUser();
+        sp.sendMessage(Constants.DEFAULT_CLIENT_ID,
+            user.getDisplayName() + " has " + user.getPoints() + " point(s).");
+    });
+}
+protected void changePhase(Phase newPhase) {
+    this.currentPhase = newPhase;
+    clientsInRoom.values().forEach(sp -> sp.sendCurrentPhase(newPhase));
+}
+
 }

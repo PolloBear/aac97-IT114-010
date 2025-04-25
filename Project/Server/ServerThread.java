@@ -16,6 +16,7 @@ import Project.Common.RoomAction;
 import Project.Common.RoomResultPayload;
 import Project.Common.TextFX;
 import Project.Common.TextFX.Color;
+import Project.Common.User;
 
 /**
  * A server-side representation of a single client
@@ -246,6 +247,15 @@ public class ServerThread extends BaseServerThread {
                     sendMessage(Constants.DEFAULT_CLIENT_ID, "You must be in a GameRoom to do a turn");
                 }
                 break;
+                
+                case PICK:
+                    if (currentRoom instanceof GameRoom gameRoom) {
+                        gameRoom.handlePick(this, incoming.getMessage());
+                }
+                break;
+
+
+
             default:
                 LoggerUtil.INSTANCE.warning(TextFX.colorize("Unknown payload type received", Color.RED));
                 break;
@@ -274,4 +284,12 @@ public class ServerThread extends BaseServerThread {
         // once receiving the desired client name the object is ready
         onInitializationComplete.accept(this);
     }
+    public User getUser() {
+    return this.user; // Assuming you already store the User object like `private User user;`
+}
+
+public void sendMessage(String message) {
+    sendMessage(Constants.DEFAULT_CLIENT_ID, message);
+}
+
 }
