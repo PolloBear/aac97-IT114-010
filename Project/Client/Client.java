@@ -6,6 +6,7 @@ import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,6 +20,7 @@ import Project.Common.LoggerUtil;
 import Project.Common.Payload;
 import Project.Common.PayloadType;
 import Project.Common.Phase;
+import Project.Common.PointsPayload;
 import Project.Common.ReadyPayload;
 import Project.Common.RoomAction;
 import Project.Common.RoomResultPayload;
@@ -446,6 +448,11 @@ public enum Client {
                 // note no data necessary as this is just a trigger
                 processResetTurn();
                 break;
+
+            case POINTS_SYNC:
+                processPointsSync((PointsPayload) payload);
+            break;
+
             default:
                 LoggerUtil.INSTANCE.warning(TextFX.colorize("Unhandled payload type", Color.YELLOW));
                 break;
@@ -679,4 +686,15 @@ public enum Client {
             e.printStackTrace();
         }
     }
+private void processPointsSync(PointsPayload payload) {
+    Map<Long, Integer> pointsMap = payload.getPointsMap();
+
+    System.out.println(TextFX.colorize("Updated Points:", Color.YELLOW));
+    pointsMap.forEach((id, points) -> {
+        String name = knownClients.containsKey(id) ? knownClients.get(id).getDisplayName() : "Unknown";
+        System.out.println(name + ": " + points + " point(s)");
+    });
+}
+
+
 }

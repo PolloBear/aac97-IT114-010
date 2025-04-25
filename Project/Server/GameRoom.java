@@ -1,11 +1,13 @@
 package Project.Server;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import Project.Common.Constants;
 import Project.Common.LoggerUtil;
 import Project.Common.Phase;
+import Project.Common.PointsPayload;
 import Project.Common.ReadyPayload;
 import Project.Common.TimedEvent;
 import Project.Common.User;
@@ -97,13 +99,7 @@ protected void onRoundStart() {
     round++;
     relay(null, String.format("Round %d has started", round));
 
-    clientsInRoom.values().forEach(sp -> {
-        User u = sp.getUser();
-        if (!u.isEliminated()) {
-            u.resetChoice();
-        }
-    });
-
+    
     startRoundTimer();
     LoggerUtil.INSTANCE.info("onRoundStart() end");
 }
@@ -151,13 +147,6 @@ protected void onRoundEnd() {
     LoggerUtil.INSTANCE.info("onRoundEnd() start");
     resetRoundTimer(); // reset timer if round ended without the time expiring
 
-    clientsInRoom.values().forEach(sp -> {
-        User user = sp.getUser();
-        if (!user.isEliminated() && user.getChoice() == null) {
-            user.eliminate();
-            relay(null, user.getDisplayName() + " did not pick and is eliminated.");
-        }
-    });
 
     processBattles();
     syncPointsToClients();
@@ -410,11 +399,15 @@ private String evaluateBattle(String a, String b) {
     }
 }
 private void syncPointsToClients() {
-    clientsInRoom.values().forEach(sp -> {
-        User user = sp.getUser();
-        sp.sendMessage(Constants.DEFAULT_CLIENT_ID,
-            user.getDisplayName() + " has " + user.getPoints() + " point(s).");
-    });
+    PointsPayload pp = new PointsPayload();
+    Map<Long, Integer> pointsMap = clientsInRoom.values().stream()
+        .collect(Collectors.toMap(
+            ServerThread::getClientId,
+            sp -> sp.getUser().getPoints()
+        ));
+    pp.setPointsMap(pointsMap);
+
+    clientsInRoom.values().forEach(sp -> sp.sendToClient(pp));
 }
 protected void changePhase(Phase newPhase) {
     this.currentPhase = newPhase;
