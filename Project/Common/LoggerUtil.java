@@ -609,4 +609,5 @@ public enum LoggerUtil {
         // Keep calling itself to cause a StackOverflowError
         recursiveMethod(depth + 1);
     }
+    
 }

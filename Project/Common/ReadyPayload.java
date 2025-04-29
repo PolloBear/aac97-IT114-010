@@ -19,4 +19,5 @@ public class ReadyPayload extends Payload {
     public String toString() {
         return super.toString() + String.format(" isReady [%s]", isReady ? "ready" : "not ready");
     }
+    
 }

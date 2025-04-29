@@ -1,4 +1,5 @@
 package Project.Common;
+
 public class ConnectionPayload extends Payload {
     private String clientName;
 

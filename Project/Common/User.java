@@ -5,12 +5,32 @@ public class User {
     private String clientName;
     private boolean isReady = false;
     private boolean tookTurn = false;
-
-
-    private String choice = null;
-    private boolean eliminated = false;
     private int points = 0;
 
+    /**
+     * @return the points
+     */
+    public int getPoints() {
+        return points;
+    }
+
+    /**
+     * @param points the points to apply (positive or negative)
+     * 
+     */
+    public void changePoints(int points) {
+        this.points += points;
+        if (this.points < 0) {
+            this.points = 0;
+        }
+    }
+
+    /**
+     * @param points the points to set
+     */
+    public void setPoints(int points) {
+        this.points = points;
+    }
 
     /**
      * @return the clientId
@@ -72,42 +92,4 @@ public class User {
     public void setTookTurn(boolean tookTurn) {
         this.tookTurn = tookTurn;
     }
-
-    ///Seting the game
-    public String getChoice() {
-        return choice;
-    }
-
-    public void setChoice(String choice) {
-        this.choice = choice;
-    }
-
-    public void resetChoice() {
-        this.choice = null;
-    }
-
-    public boolean isEliminated() {
-        return eliminated;
-    }
-
-    public void eliminate() {
-        this.eliminated = true;
-    }
-
-    public void resetElimination() {
-        this.eliminated = false;
-    }
-
-    public int getPoints() {
-        return points;
-    }
-
-    public void addPoint() {
-        this.points++;
-    }
-
-    public void resetPoints() {
-        this.points = 0;
-    }
-
 }

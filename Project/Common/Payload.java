@@ -53,4 +53,5 @@ public class Payload implements Serializable {
     public String toString() {
         return String.format("Payload[%s] Client Id [%s] Message: [%s]", getPayloadType(), getClientId(), getMessage());
     }
+    
 }

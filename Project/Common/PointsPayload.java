@@ -1,26 +1,28 @@
 package Project.Common;
 
-import java.util.Map;
-
 public class PointsPayload extends Payload {
-    private Map<Long, Integer> pointsMap;
+    private int points;
 
     public PointsPayload() {
-        setPayloadType(PayloadType.POINTS_SYNC);
+        setPayloadType(PayloadType.POINTS);
     }
 
-    public Map<Long, Integer> getPointsMap() {
-        return pointsMap;
+    /**
+     * @return the points
+     */
+    public int getPoints() {
+        return points;
     }
 
-    public void setPointsMap(Map<Long, Integer> pointsMap) {
-        this.pointsMap = pointsMap;
+    /**
+     * @param points the points to set
+     */
+    public void setPoints(int points) {
+        this.points = points;
     }
 
     @Override
     public String toString() {
-        return "PointsPayload{" +
-                "pointsMap=" + pointsMap +
-                '}';
+        return super.toString() + String.format(" points=%d", points);
     }
 }
