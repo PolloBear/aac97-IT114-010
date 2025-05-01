@@ -25,4 +25,8 @@ public class PointsPayload extends Payload {
     public String toString() {
         return super.toString() + String.format(" points=%d", points);
     }
+    private boolean eliminated;
+    public boolean isEliminated() { return eliminated; }
+    public void setEliminated(boolean val) { eliminated = val; }
+
 }

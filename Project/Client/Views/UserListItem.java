@@ -8,6 +8,7 @@ import javax.swing.JEditorPane;
 import javax.swing.JPanel;
 import javax.swing.border.EmptyBorder;
 
+
 /**
  * UserListItem represents a user entry in the user list.
  */
@@ -50,6 +51,7 @@ public class UserListItem extends JPanel {
         mid.add(pointsPanel, BorderLayout.SOUTH);
         this.add(mid, BorderLayout.CENTER);
         setPoints(-1);
+        
         // setPreferredSize(new Dimension(0,0));
     }
 

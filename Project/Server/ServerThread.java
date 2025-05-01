@@ -333,4 +333,14 @@ public class ServerThread extends BaseServerThread {
         return this.choice;
     }
 
+    private boolean eliminated = false;
+
+    public void setEliminated(boolean eliminated) {
+        this.eliminated = eliminated;
+    }
+
+    public boolean isEliminated() {
+        return eliminated;
+    }
+
 }

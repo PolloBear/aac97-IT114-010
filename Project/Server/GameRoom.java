@@ -198,7 +198,12 @@ public class GameRoom extends BaseGameRoom {
         int rock = 0, paper = 0, scissors = 0;
         for (ServerThread p : players) {
             String c = p.getChoice();
-            if (c == null) continue;
+            if (c == null) {
+                p.setEliminated(true);
+                sendGameEvent(p.getDisplayName() + " did not choose and is eliminated.");
+                
+                continue;
+            }
             switch (c) {
                 case "rock": rock++; break;
                 case "paper": paper++; break;
@@ -367,18 +372,23 @@ public class GameRoom extends BaseGameRoom {
 
     private ServerThread getNextPlayer() throws MissingCurrentPlayerException, PlayerNotFoundException {
         int index = 0;
-        if (currentTurnClientId != Constants.DEFAULT_CLIENT_ID) {
-            index = turnOrder.indexOf(getCurrentPlayer()) + 1;
-            if (index >= turnOrder.size()) {
-                index = 0;
-            }
+    if (currentTurnClientId != Constants.DEFAULT_CLIENT_ID) {
+        index = turnOrder.indexOf(getCurrentPlayer()) + 1;
+    }
+    int originalIndex = index;
+    for (int i = 0; i < turnOrder.size(); i++) {
+        ServerThread candidate = turnOrder.get(index % turnOrder.size());
+        if (!candidate.isEliminated()) {
+            currentTurnClientId = candidate.getClientId();
+            return candidate;
         }
-        ServerThread nextPlayer = turnOrder.get(index);
-        currentTurnClientId = nextPlayer.getClientId();
-        return nextPlayer;
+        index++;
     }
 
-    private boolean isLastPlayer() throws MissingCurrentPlayerException, PlayerNotFoundException {
+        throw new MissingCurrentPlayerException("No non-eliminated players found");
+    }
+
+        private boolean isLastPlayer() throws MissingCurrentPlayerException, PlayerNotFoundException {
         // check if the current player is the last player in the turn order
         return turnOrder.indexOf(getCurrentPlayer()) == (turnOrder.size() - 1);
     }
@@ -421,7 +431,11 @@ public class GameRoom extends BaseGameRoom {
                 currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, "You have already taken your turn this round");
                 return;
             }
-    
+            if (currentUser.isEliminated()) {
+                currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, "You have been eliminated and can no longer play.");
+                return;
+            }
+            
             
             currentUser.setChoice(choiceText.toLowerCase());
             sendGameEvent(currentUser.getDisplayName() + " finished their turn");
@@ -455,6 +469,7 @@ public class GameRoom extends BaseGameRoom {
         } catch (Exception e) {
             LoggerUtil.INSTANCE.severe("handleTurnAction exception", e);
         }
+       
     }
 
     // end receive data from ServerThread (GameRoom specific)
