@@ -32,16 +32,38 @@ public class GamePanel extends JPanel implements IRoomEvents, IPhaseEvent {
         super(new BorderLayout());
 
         // Create the buttons and add them to a panel
-        JButton doSomething = new JButton("Do Something");
-        doSomething.addActionListener(event -> {
+        
+        JButton rockButton = new JButton("rock");
+        JButton paperButton = new JButton("paper");
+        JButton scissorsButton = new JButton("scissors");
+
+        rockButton.addActionListener(event -> {
             try {
-                Client.INSTANCE.sendDoTurn("example");
+                Client.INSTANCE.sendDoTurn("rock");
             } catch (IOException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
             }
         });
-        buttonPanel.add(doSomething);
+        buttonPanel.add(rockButton);
+        paperButton.addActionListener(event -> {
+            try {
+                Client.INSTANCE.sendDoTurn("paper");
+            } catch (IOException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        });
+        buttonPanel.add(paperButton);
+        scissorsButton.addActionListener(event -> {
+            try {
+                Client.INSTANCE.sendDoTurn("scissors");
+            } catch (IOException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        });
+        buttonPanel.add(scissorsButton);
 
         JPanel gameContainer = new JPanel(new CardLayout());
         cardLayout = (CardLayout) gameContainer.getLayout();

@@ -323,4 +323,14 @@ public class ServerThread extends BaseServerThread {
         // once receiving the desired client name the object is ready
         onInitializationComplete.accept(this);
     }
+    private String choice;
+
+    public void setChoice(String choice) {
+        this.choice = choice;
+    }
+
+    public String getChoice() {
+        return this.choice;
+    }
+
 }

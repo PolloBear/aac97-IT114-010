@@ -3,7 +3,7 @@ package Project.Server;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Random;
+
 import java.util.stream.Collectors;
 
 import Project.Common.Constants;
@@ -121,6 +121,12 @@ public class GameRoom extends BaseGameRoom {
         resetTurnStatus();
         LoggerUtil.INSTANCE.info("onRoundStart() end");
         onTurnStart();
+
+        for (ServerThread player : clientsInRoom.values()) {
+            player.setChoice(null);
+            player.setTookTurn(false);
+        }
+        
     }
 
     /** {@inheritDoc} */
@@ -139,6 +145,9 @@ public class GameRoom extends BaseGameRoom {
 
         startTurnTimer();
         LoggerUtil.INSTANCE.info("onTurnStart() end");
+
+        
+        
     }
 
     // Note: logic between Turn Start and Turn End is typically handled via timers
@@ -176,12 +185,56 @@ public class GameRoom extends BaseGameRoom {
     @Override
     protected void onRoundEnd() {
         LoggerUtil.INSTANCE.info("onRoundEnd() start");
-        resetRoundTimer(); // reset timer if round ended without the time expiring
+        resetRoundTimer();
 
+        List<ServerThread> players = new ArrayList<>(clientsInRoom.values());
+        if (players.size() < 2) {
+            sendGameEvent("Not enough players to evaluate a round.");
+            onRoundStart();
+            return;
+        }
+
+     // Collect choices
+        int rock = 0, paper = 0, scissors = 0;
+        for (ServerThread p : players) {
+            String c = p.getChoice();
+            if (c == null) continue;
+            switch (c) {
+                case "rock": rock++; break;
+                case "paper": paper++; break;
+                case "scissors": scissors++; break;
+            }
+        }
+ 
+     // Determine winner(s)
+        String winningChoice = null;
+ 
+        if (rock > 0 && paper > 0 && scissors > 0) {
+            sendGameEvent("It's a tie! All three choices were played.");
+        } else if (rock > 0 && paper > 0 && scissors == 0) {
+            winningChoice = "paper";
+        } else if (rock > 0 && scissors > 0 && paper == 0) {
+            winningChoice = "rock";
+        } else if (paper > 0 && scissors > 0 && rock == 0) {
+            winningChoice = "scissors";
+        } else {
+            sendGameEvent("It's a tie!");
+        }
+ 
+        if (winningChoice != null) {
+            for (ServerThread p : players) {
+                if (winningChoice.equals(p.getChoice())) {
+                    p.changePoints(1);
+                    sendPlayerPoints(p);
+                    sendGameEvent(p.getDisplayName() + " wins the round!");
+                }
+            }
+        }
+  
         LoggerUtil.INSTANCE.info("onRoundEnd() end");
-        // moved end condition check to onTurnEnd()
         onRoundStart();
     }
+
 
     /** {@inheritDoc} */
     @Override
@@ -347,11 +400,7 @@ public class GameRoom extends BaseGameRoom {
     }
 
     // start check methods
-    private void checkCurrentPlayer(long clientId) throws NotPlayersTurnException {
-        if (currentTurnClientId != clientId) {
-            throw new NotPlayersTurnException("You are not the current player");
-        }
-    }
+    
 
     // end check methods
 
@@ -360,30 +409,36 @@ public class GameRoom extends BaseGameRoom {
      * 
      * @param currentUser
      */
-    protected void handleTurnAction(ServerThread currentUser, String exampleText) {
+    protected void handleTurnAction(ServerThread currentUser, String choiceText) {
         // check if the client is in the room
         try {
             checkPlayerInRoom(currentUser);
             checkCurrentPhase(currentUser, Phase.IN_PROGRESS);
-            checkCurrentPlayer(currentUser.getClientId());
+            //checkCurrentPlayer(currentUser.getClientId());
             checkIsReady(currentUser);
+    
             if (currentUser.didTakeTurn()) {
                 currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, "You have already taken your turn this round");
                 return;
             }
-            int points = new Random().nextInt(4) == 3 ? 1 : 0;
-            sendGameEvent(String.format("%s %s", currentUser.getDisplayName(),
-                    points > 0 ? "gained a point" : "didn't gain a point"));
-            if (points > 0) {
-                currentUser.changePoints(points);
-                sendPlayerPoints(currentUser);
+    
+            // ✅ Store the player's choice (rock/paper/scissors)
+            currentUser.setChoice(choiceText.toLowerCase());
+            sendGameEvent(currentUser.getDisplayName() + " finished their turn");
+    
+            currentUser.setTookTurn(true);
+            int readyPlayers = (int) clientsInRoom.values().stream()
+                .filter(ServerThread::didTakeTurn)
+                .count();
+
+            int totalPlayers = clientsInRoom.size();
+
+            if (readyPlayers == totalPlayers) {
+            onRoundEnd(); 
             }
 
-            currentUser.setTookTurn(true);
-            // TODO handle example text possibly or other turn related intention from client
-            sendTurnStatus(currentUser, currentUser.didTakeTurn());
-
-            onTurnEnd();
+            sendTurnStatus(currentUser, true);
+    
         } catch (NotPlayersTurnException e) {
             currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, "It's not your turn");
             LoggerUtil.INSTANCE.severe("handleTurnAction exception", e);
