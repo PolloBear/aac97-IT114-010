@@ -422,7 +422,7 @@ public class GameRoom extends BaseGameRoom {
                 return;
             }
     
-            // ✅ Store the player's choice (rock/paper/scissors)
+            
             currentUser.setChoice(choiceText.toLowerCase());
             sendGameEvent(currentUser.getDisplayName() + " finished their turn");
     
