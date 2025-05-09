@@ -36,7 +36,9 @@ public class GamePanel extends JPanel implements IRoomEvents, IPhaseEvent {
         JButton rockButton = new JButton("rock");
         JButton paperButton = new JButton("paper");
         JButton scissorsButton = new JButton("scissors");
-
+        JButton lizardButton = new JButton("lizard");
+        JButton spockButton = new JButton("spock");
+        
         rockButton.addActionListener(event -> {
             try {
                 Client.INSTANCE.sendDoTurn("rock");
@@ -64,6 +66,27 @@ public class GamePanel extends JPanel implements IRoomEvents, IPhaseEvent {
             }
         });
         buttonPanel.add(scissorsButton);
+        lizardButton = new JButton("lizard");
+        lizardButton.addActionListener(event -> {
+        try {
+            Client.INSTANCE.sendDoTurn("lizard");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        });
+        buttonPanel.add(lizardButton);
+
+        spockButton = new JButton("spock");
+        spockButton.addActionListener(event -> {
+        try {
+            Client.INSTANCE.sendDoTurn("spock");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        });
+        buttonPanel.add(spockButton);
+
+       
 
         JPanel gameContainer = new JPanel(new CardLayout());
         cardLayout = (CardLayout) gameContainer.getLayout();
@@ -119,7 +142,7 @@ public class GamePanel extends JPanel implements IRoomEvents, IPhaseEvent {
             setVisible(true);
             getParent().revalidate();
             getParent().repaint();
-            System.out.println("GamePanel visible");
+            System.out.println("GamePanel visible");            
         }
         if (phase == Phase.READY) {
             cardLayout.show(playPanel.getParent(), READY_PANEL);
@@ -128,10 +151,11 @@ public class GamePanel extends JPanel implements IRoomEvents, IPhaseEvent {
             cardLayout.show(playPanel.getParent(), PLAY_PANEL);
             buttonPanel.setVisible(true);
         }
-    }
+        
+        }
+
 
     @Override
     public void onReceiveRoomList(List<String> rooms, String message) {
-        // Not used here, but needs to be defined due to interface
     }
 }

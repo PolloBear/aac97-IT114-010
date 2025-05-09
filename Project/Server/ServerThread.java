@@ -1,6 +1,8 @@
 package Project.Server;
 
 import java.net.Socket;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -25,7 +27,39 @@ import Project.Common.TimerType;
  */
 public class ServerThread extends BaseServerThread {
     private Consumer<ServerThread> onInitializationComplete; // callback to inform when this object is ready
+    private Deque<String> choiceHistory = new ArrayDeque<>();
+    private static final int MAX_REPEATS = 2;
+    private String lastChoice = null;
+    private int sameChoiceCount = 0;
 
+    public boolean canChoose(String choice) {
+        long count = choiceHistory.stream().filter(c -> c.equals(choice)).count();
+        return count < MAX_REPEATS;
+    }
+    public void updateChoiceHistory(String choice) {
+        if (choiceHistory.size() >= MAX_REPEATS) {
+            choiceHistory.removeFirst();
+        }
+        choiceHistory.addLast(choice);
+    }
+    public void resetChoiceHistory() {
+        choiceHistory.clear();
+    }
+    public String getLastChoice() {
+        return lastChoice;
+    }
+    
+    public void setLastChoice(String lastChoice) {
+        this.lastChoice = lastChoice;
+    }
+    
+    public int getSameChoiceCount() {
+        return sameChoiceCount;
+    }
+    
+    public void setSameChoiceCount(int count) {
+        this.sameChoiceCount = count;
+    }
     /**
      * A wrapper method so we don't need to keep typing out the long/complex sysout
      * line inside
@@ -248,8 +282,14 @@ public class ServerThread extends BaseServerThread {
                 currentRoom.handleDisconnect(this);
                 break;
             case MESSAGE:
+                if (incoming.getMessage().startsWith("/cooldown")) {
+                    boolean toggle = Boolean.parseBoolean(incoming.getMessage().split(" ")[1]);
+                    setCooldownEnabled(toggle);
+                    break;
+                }
                 currentRoom.handleMessage(this, incoming.getMessage());
                 break;
+        
             case REVERSE:
                 currentRoom.handleReverseText(this, incoming.getMessage());
                 break;
@@ -283,6 +323,15 @@ public class ServerThread extends BaseServerThread {
                     sendMessage(Constants.DEFAULT_CLIENT_ID, "You must be in a GameRoom to do a turn");
                 }
                 break;
+                case TOGGLE_EXTENDED_MODE:
+                    try {
+                        boolean useExtended = Boolean.parseBoolean(incoming.getMessage());
+                        ((GameRoom) currentRoom).setExtendedMode(useExtended);
+                } catch (Exception e) {
+                    sendMessage(Constants.DEFAULT_CLIENT_ID, "You must be in a GameRoom to toggle this setting");
+            }
+                break;
+
             default:
                 LoggerUtil.INSTANCE.warning(TextFX.colorize("Unknown payload type received", Color.RED));
                 break;
@@ -342,5 +391,14 @@ public class ServerThread extends BaseServerThread {
     public boolean isEliminated() {
         return eliminated;
     }
+    private boolean cooldownEnabled = false;
 
+    public void setCooldownEnabled(boolean enabled) {
+        this.cooldownEnabled = enabled;
+    }
+    
+    public boolean isCooldownEnabled() {
+        return cooldownEnabled;
+    }
+    
 }

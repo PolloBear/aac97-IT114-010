@@ -27,4 +27,7 @@ public enum PayloadType {
        TIME, // syncs current time of various timers
        POINTS, // syncs points data
        PICK,
+       TOGGLE_EXTENDED_MODE,
+       EXTENDED_MODE,
+
 }

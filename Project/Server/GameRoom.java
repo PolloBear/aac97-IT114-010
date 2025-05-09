@@ -16,6 +16,8 @@ import Project.Exceptions.NotPlayersTurnException;
 import Project.Exceptions.NotReadyException;
 import Project.Exceptions.PhaseMismatchException;
 import Project.Exceptions.PlayerNotFoundException;
+import Project.Common.Phase;
+
 
 public class GameRoom extends BaseGameRoom {
 
@@ -27,11 +29,18 @@ public class GameRoom extends BaseGameRoom {
     private List<ServerThread> turnOrder = new ArrayList<>();
     private long currentTurnClientId = Constants.DEFAULT_CLIENT_ID;
     private int round = 0;
+    private boolean extendedMode = false;
 
     public GameRoom(String name) {
         super(name);
     }
-
+    public void setExtendedMode(boolean enable) {
+        this.extendedMode = enable;
+        sendGameEvent("Extended Mode has been " + (enable ? "enabled" : "disabled"));
+    }
+    public boolean isExtendedMode() {
+        return extendedMode;
+    }
     /** {@inheritDoc} */
     @Override
     protected void onClientAdded(ServerThread sp) {
@@ -212,19 +221,30 @@ public class GameRoom extends BaseGameRoom {
         }
  
      // Determine winner(s)
-        String winningChoice = null;
- 
-        if (rock > 0 && paper > 0 && scissors > 0) {
-            sendGameEvent("It's a tie! All three choices were played.");
-        } else if (rock > 0 && paper > 0 && scissors == 0) {
-            winningChoice = "paper";
-        } else if (rock > 0 && scissors > 0 && paper == 0) {
-            winningChoice = "rock";
-        } else if (paper > 0 && scissors > 0 && rock == 0) {
-            winningChoice = "scissors";
-        } else {
-            sendGameEvent("It's a tie!");
-        }
+     String winningChoice = null;
+
+     if (rock > 0 && paper > 0 && scissors > 0) {
+         sendGameEvent("It's a tie! All three choices were played.");
+     } else if (rock > 0 && paper > 0 && scissors == 0) {
+         winningChoice = "paper";
+     } else if (rock > 0 && scissors > 0 && paper == 0) {
+         winningChoice = "rock";
+     } else if (paper > 0 && scissors > 0 && rock == 0) {
+         winningChoice = "scissors";
+     } else {
+         sendGameEvent("It's a tie!");
+     }
+     
+     if (winningChoice != null) {
+         for (ServerThread p : players) {
+             if (winningChoice.equals(p.getChoice())) {
+                 p.changePoints(1);
+                 sendPlayerPoints(p);
+                 sendGameEvent(p.getDisplayName() + " wins the round!");
+             }
+         }
+     }
+     
  
         if (winningChoice != null) {
             for (ServerThread p : players) {
@@ -435,10 +455,30 @@ public class GameRoom extends BaseGameRoom {
                 return;
             }
             
+            if (!currentUser.canChoose(choiceText.toLowerCase())) {
+                currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, "You can't pick the same choice more than 2 times in a row.");
+                return;
+            }
             
-            currentUser.setChoice(choiceText.toLowerCase());
-            sendGameEvent(currentUser.getDisplayName() + " finished their turn");
-    
+            String currentChoice = choiceText.toLowerCase();
+            String last = currentUser.getLastChoice();
+
+            if (currentChoice.equals(last)) {
+                currentUser.setSameChoiceCount(currentUser.getSameChoiceCount() + 1);
+            } else {
+                currentUser.setSameChoiceCount(1);
+                currentUser.setLastChoice(currentChoice);
+            }
+
+            if (currentUser.getSameChoiceCount() > 2) {
+                currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, 
+                    "You cannot choose \"" + currentChoice + "\" more than twice in a row.");
+            return;
+            }
+
+            currentUser.setChoice(currentChoice);
+            currentUser.setLastChoice(currentChoice); // update again to be safe
+
             currentUser.setTookTurn(true);
             int readyPlayers = (int) clientsInRoom.values().stream()
                 .filter(ServerThread::didTakeTurn)
@@ -449,7 +489,9 @@ public class GameRoom extends BaseGameRoom {
             if (readyPlayers == totalPlayers) {
             onRoundEnd(); 
             }
-
+            if (currentUser.isCooldownEnabled()) {
+                // apply cooldown rule
+            }
             sendTurnStatus(currentUser, true);
     
         } catch (NotPlayersTurnException e) {
@@ -470,6 +512,19 @@ public class GameRoom extends BaseGameRoom {
         }
        
     }
-
+    @Override
+    protected void handleMessage(ServerThread sender, String message) {
+        if ("/toggle-extended".equalsIgnoreCase(message)) {
+            if (currentPhase == Phase.READY) {
+                setExtendedMode(!extendedMode);
+            } else {
+                sender.sendMessage(Constants.DEFAULT_CLIENT_ID, "You can only toggle Extended Mode during the READY phase.");
+            }
+            return;
+        }
+    
+        super.handleMessage(sender, message); // fall back to default handler
+    }
+    
     // end receive data from ServerThread (GameRoom specific)
 }

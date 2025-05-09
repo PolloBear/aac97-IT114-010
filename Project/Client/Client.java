@@ -55,6 +55,7 @@ public enum Client {
     private final ConcurrentHashMap<Long, User> knownClients = new ConcurrentHashMap<Long, User>();
     private User myUser = new User();
     private Phase currentPhase = Phase.READY;
+    private boolean extendedMode = false;
 
     // callback that updates the UI
     private static List<IClientEvents> events = new ArrayList<IClientEvents>();
@@ -62,7 +63,13 @@ public enum Client {
     public void addCallback(IClientEvents e) {
         events.add(e);
     }
-
+    public boolean isExtendedMode() {
+        return extendedMode;
+    }
+    
+    public void setExtendedMode(boolean mode) {
+        this.extendedMode = mode;
+    }
     private void error(String message) {
         LoggerUtil.INSTANCE.severe(TextFX.colorize(String.format("%s", message), Color.RED));
     }
@@ -303,7 +310,11 @@ public enum Client {
 
                 sendDoTurn(text);
                 wasCommand = true;
+            }else if (text.equalsIgnoreCase(Command.READY.command)) {
+                sendReady();
+                wasCommand = true;
             }
+            
         }
         return wasCommand;
     }
@@ -825,7 +836,9 @@ public enum Client {
             case SYNC_CLIENT:
                 // add to map
                 if (!knownClients.containsKey(connectionPayload.getClientId())) {
+                    
                     User user = new User();
+                    
                     user.setClientId(connectionPayload.getClientId());
                     user.setClientName(connectionPayload.getClientName());
                     knownClients.put(connectionPayload.getClientId(), user);
@@ -949,4 +962,11 @@ public enum Client {
             e.printStackTrace();
         }
     }
+    public void sendExtendedMode(boolean enabled) throws IOException {
+        Payload payload = new Payload();
+        payload.setPayloadType(PayloadType.TOGGLE_EXTENDED_MODE);
+        payload.setMessage(Boolean.toString(enabled)); // Send as a string "true" or "false"
+        sendToServer(payload);
+    }
+    
 }
