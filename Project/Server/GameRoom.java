@@ -375,7 +375,6 @@ public class GameRoom extends BaseGameRoom {
     if (currentTurnClientId != Constants.DEFAULT_CLIENT_ID) {
         index = turnOrder.indexOf(getCurrentPlayer()) + 1;
     }
-    int originalIndex = index;
     for (int i = 0; i < turnOrder.size(); i++) {
         ServerThread candidate = turnOrder.get(index % turnOrder.size());
         if (!candidate.isEliminated()) {
